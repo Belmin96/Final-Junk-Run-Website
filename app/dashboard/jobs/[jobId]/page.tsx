@@ -5,11 +5,12 @@ import type { Estimate, JobPhoto } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getOrCreateCustomer } from "@/lib/getOrCreateCustomer";
 import { formatDate, jobStatusBadgeClass, jobStatusLabel } from "@/lib/format";
+import { getArrivalTiming } from "@/lib/timing";
 import JobTimeline from "@/components/dashboard/JobTimeline";
 import EstimateList from "@/components/dashboard/EstimateList";
 import PaymentPanel from "@/components/dashboard/PaymentPanel";
 import ReviewForm from "@/components/dashboard/ReviewForm";
-import DevSimulatePanel from "@/components/dashboard/DevSimulatePanel";
+import ArrivalStatus from "@/components/dashboard/ArrivalStatus";
 
 export const metadata: Metadata = { title: "Job Details" };
 export const dynamic = "force-dynamic";
@@ -42,6 +43,7 @@ export default async function JobDetailPage({
   );
   const contractorChosen = Boolean(job.chosenContractorId);
   const showEstimates = !contractorChosen && job.status !== "CANCELLED";
+  const timing = getArrivalTiming(job);
 
   return (
     <>
@@ -59,8 +61,15 @@ export default async function JobDetailPage({
         <span className={jobStatusBadgeClass(job.status)}>{jobStatusLabel(job.status)}</span>
       </div>
 
-      {process.env.NODE_ENV !== "production" && job.status !== "COMPLETED" && job.status !== "CANCELLED" && (
-        <DevSimulatePanel jobId={job.id} status={job.status} />
+      {job.status === "IN_PROGRESS" && (
+        <ArrivalStatus
+          jobId={job.id}
+          minutesElapsed={timing.minutesElapsed}
+          warning={timing.warning}
+          reassignmentEligible={timing.reassignmentEligible}
+          arrivedAt={job.arrivedAt}
+          arrivalVerified={job.arrivalVerified}
+        />
       )}
 
       <div className="dash-grid">
@@ -74,7 +83,7 @@ export default async function JobDetailPage({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   key={photo.id}
-                  src={photo.dataUrl}
+                  src={`/api/photos/${photo.r2Key}`}
                   alt={photo.caption ?? "Job photo"}
                   className="dash-photo-thumb"
                 />

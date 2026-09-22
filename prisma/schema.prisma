@@ -60,10 +60,11 @@ model Customer {
   reviews Review[]
 }
 
-// Independent contractors. Full contractor-side app is a separate build;
-// this is the minimal shape the customer flow needs to reference.
+// Independent contractors. One row per Clerk user (linked by clerkId),
+// same lazy-upsert pattern as Customer -- see lib/getOrCreateContractor.ts.
 model Contractor {
   id           String   @id @default(cuid())
+  clerkId      String   @unique
   businessName String
   email        String   @unique
   phone        String?
@@ -90,9 +91,24 @@ model Job {
   zip                String
   pickupDate         DateTime
 
+  // Geocoded from the pickup address when the job is created (best-effort --
+  // see lib/geocode.ts). Powers the GPS arrival check below; null if
+  // geocoding failed or hasn't run.
+  latitude  Float?
+  longitude Float?
+
   status              JobStatus @default(DRAFT)
   chosenContractorId  String?
   chosenContractor    Contractor? @relation("JobChosenContractor", fields: [chosenContractorId], references: [id])
+
+  // 45-minute contractor timing + GPS arrival verification (see lib/timing.ts).
+  // startedAt begins the clock; arrivedAt/arrivalLat/arrivalLng/arrivalVerified
+  // are set together when the contractor confirms arrival.
+  startedAt        DateTime?
+  arrivedAt        DateTime?
+  arrivalLat       Float?
+  arrivalLng       Float?
+  arrivalVerified  Boolean   @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -107,15 +123,15 @@ model Job {
 }
 
 model JobPhoto {
-  id        String   @id @default(cuid())
-  jobId     String
-  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  // Stored as a data: URL for now (no object storage wired up yet).
-  // Swap this for a Cloudflare R2 URL before real production traffic --
-  // see the README note on photo storage.
-  dataUrl   String   @db.Text
-  caption   String?
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  jobId       String
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  // Object key in the JOB_PHOTOS R2 bucket (see lib/r2.ts). Served back
+  // through /api/photos/[...key] rather than a public bucket URL.
+  r2Key       String   @db.Text
+  contentType String
+  caption     String?
+  createdAt   DateTime @default(now())
 
   @@index([jobId])
 }

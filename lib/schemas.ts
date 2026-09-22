@@ -41,6 +41,25 @@ export const reviewFormSchema = z.object({
   comment: z.string().trim().max(2000).optional().or(z.literal("")),
 });
 
+export const contractorProfileFormSchema = z.object({
+  businessName: z.string().trim().min(2, "Business name is required").max(160),
+  phone: z.string().trim().max(20).optional().or(z.literal("")),
+});
+
+export const estimateFormSchema = z.object({
+  amountCents: z
+    .number()
+    .int()
+    .min(500, "Estimate must be at least $5")
+    .max(10_000_00, "Estimate must be under $10,000"),
+  message: z.string().trim().max(1000).optional().or(z.literal("")),
+});
+
+export const arrivalFormSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+});
+
 export const profileFormSchema = z.object({
   firstName: z.string().trim().max(80).optional().or(z.literal("")),
   lastName: z.string().trim().max(80).optional().or(z.literal("")),

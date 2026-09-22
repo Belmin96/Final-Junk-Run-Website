@@ -1,0 +1,32 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // Same name as the Worker already deployed for the marketing site --
+  // deploying with this config replaces that Worker in place with the
+  // full app (same URL/routes), rather than creating a separate one.
+  "name": "junkrun-website",
+  "main": ".open-next/worker.js",
+  // Bump this to today's date if you deploy again much later.
+  "compatibility_date": "2026-09-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_cGxlYXNpbmctZGluZ28tMzMyNy5jbGVyay5hY2NvdW50cy5kZXYk",
+    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_test_51UE6lfDlAhum9oiB4yt7IgJIQNQJf4bmq4ZEX7CbcVrakLKUvWWp8BQqXopB23cQuZo9bvIA73yrXEXaeFQvwwni00dtMMnGTQ"
+  },
+  // Job photos live here instead of as base64 in Postgres (see lib/r2.ts).
+  // R2 needs to be enabled on this Cloudflare account and this bucket
+  // created before `npm run deploy` will succeed -- see the README's
+  // Cloudflare section for the exact steps.
+  "r2_buckets": [
+    {
+      "binding": "JOB_PHOTOS",
+      "bucket_name": "junkrun-job-photos"
+    }
+  ]
+}

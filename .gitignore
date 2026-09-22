@@ -18,8 +18,14 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env
 .env*.local
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# cloudflare / opennext
+.open-next/
+.wrangler/
+cloudflare-env.d.ts

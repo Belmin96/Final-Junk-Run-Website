@@ -1,19 +1,34 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-// Everything under /dashboard, plus the customer-only API routes, requires
-// a signed-in customer. Marketing pages and sign-in/sign-up stay public.
-// (There's no public API route yet -- e.g. a future Stripe webhook handler
-// would need to be excluded here, since Stripe can't sign in as a customer.)
+// Everything under /dashboard and /contractor, plus their API routes,
+// requires a signed-in customer/contractor respectively. Marketing pages
+// and both sides' sign-in/sign-up stay public.
+//
+// Two carve-outs from the blanket rules below:
+//  - /contractor/sign-in and /contractor/sign-up must stay public even
+//    though they're under /contractor -- otherwise no one could ever reach
+//    them to sign in.
+//  - /api/stripe/webhook must stay public -- Stripe calls it directly and
+//    can't authenticate as a Clerk user. It verifies itself instead via the
+//    Stripe-Signature header (see the route for details).
 const isProtectedRoute = createRouteMatcher([
   "/dashboard(.*)",
+  "/contractor(.*)",
   "/api/jobs(.*)",
   "/api/profile(.*)",
   "/api/stripe(.*)",
-  "/api/dev(.*)",
+  "/api/contractor(.*)",
+  "/api/photos(.*)",
+]);
+
+const isPublicCarveOut = createRouteMatcher([
+  "/contractor/sign-in(.*)",
+  "/contractor/sign-up(.*)",
+  "/api/stripe/webhook(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (isProtectedRoute(req)) {
+  if (isProtectedRoute(req) && !isPublicCarveOut(req)) {
     await auth.protect();
   }
 });

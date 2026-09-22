@@ -45,9 +45,9 @@ export default function HaulersPage() {
               all as an independent contractor.
             </p>
             <div className="cta-row">
-              <button type="button" className="btn btn-primary">
+              <Link href="/contractor/sign-up" className="btn btn-primary">
                 Join as a Contractor →
-              </button>
+              </Link>
               <Link href="/how-it-works" className="btn btn-outline">
                 See How It Works →
               </Link>
@@ -276,14 +276,14 @@ export default function HaulersPage() {
           </p>
           <div className="dual">
             <div className="col">
-              <button type="button" className="btn btn-primary">
+              <Link href="/contractor/sign-up" className="btn btn-primary">
                 Join as a Contractor →
-              </button>
+              </Link>
             </div>
             <div className="col">
-              <button type="button" className="btn btn-outline">
+              <Link href="/contractor/sign-in" className="btn btn-outline">
                 View Available Jobs →
-              </button>
+              </Link>
             </div>
           </div>
           <p className="footnote">

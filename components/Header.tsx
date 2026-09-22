@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { NAV_LINKS } from "@/lib/nav";
 
 export default function Header() {
@@ -51,20 +52,20 @@ export default function Header() {
           </ul>
 
           <div className="nav-right">
-            <a
-              href="#"
-              className="btn btn-outline btn-sm"
-              onClick={(e) => e.preventDefault()}
-            >
-              Log In
-            </a>
-            <a
-              href="#"
-              className="btn btn-primary btn-sm"
-              onClick={(e) => e.preventDefault()}
-            >
-              Get Started →
-            </a>
+            <SignedOut>
+              <Link href="/sign-in" className="btn btn-outline btn-sm">
+                Log In
+              </Link>
+              <Link href="/sign-up" className="btn btn-primary btn-sm">
+                Get Started →
+              </Link>
+            </SignedOut>
+            <SignedIn>
+              <Link href="/dashboard" className="btn btn-outline btn-sm">
+                Dashboard
+              </Link>
+              <UserButton afterSignOutUrl="/" />
+            </SignedIn>
             <div className="nav-slogan">
               CLEANER SPACES
               <br />
@@ -94,17 +95,34 @@ export default function Header() {
               {link.label}
             </Link>
           ))}
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setOpen(false);
-            }}
-            className="btn btn-primary"
-            style={{ marginTop: "14px", justifyContent: "center" }}
-          >
-            Get Started
-          </a>
+          <SignedOut>
+            <Link
+              href="/sign-in"
+              onClick={() => setOpen(false)}
+              className="btn btn-outline"
+              style={{ marginTop: "14px", justifyContent: "center" }}
+            >
+              Log In
+            </Link>
+            <Link
+              href="/sign-up"
+              onClick={() => setOpen(false)}
+              className="btn btn-primary"
+              style={{ marginTop: "10px", justifyContent: "center" }}
+            >
+              Get Started
+            </Link>
+          </SignedOut>
+          <SignedIn>
+            <Link
+              href="/dashboard"
+              onClick={() => setOpen(false)}
+              className="btn btn-primary"
+              style={{ marginTop: "14px", justifyContent: "center" }}
+            >
+              Dashboard
+            </Link>
+          </SignedIn>
         </div>
       </div>
     </header>

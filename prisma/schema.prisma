@@ -1,0 +1,169 @@
+// Junk Run — database schema
+// Customer-side models for auth, job posting, estimates, payments, and reviews.
+// Run `npm run db:push` after setting DATABASE_URL to create these tables in Neon.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum JobStatus {
+  DRAFT // customer is still filling out the job post
+  AWAITING_ESTIMATES // posted, waiting on contractor estimates
+  ESTIMATES_RECEIVED // at least one estimate has come in
+  CONTRACTOR_SELECTED // customer picked a contractor
+  IN_PROGRESS // job accepted by contractor, work not yet done
+  COMPLETED // work done, ready for payment/review
+  CANCELLED
+}
+
+enum EstimateStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+// A signed-in customer. One row per Clerk user (linked by clerkId).
+model Customer {
+  id                     String   @id @default(cuid())
+  clerkId                String   @unique
+  email                  String   @unique
+  firstName              String?
+  lastName               String?
+  phone                  String?
+  addressLine1           String?
+  addressLine2           String?
+  city                   String?
+  state                  String?
+  zip                    String?
+  stripeCustomerId       String?  @unique
+  defaultPaymentMethodId String?
+  // Cached for display only (avoids a Stripe API round-trip on every page
+  // load) -- the source of truth is always Stripe.
+  defaultPaymentMethodBrand String?
+  defaultPaymentMethodLast4 String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  jobs    Job[]
+  reviews Review[]
+}
+
+// Independent contractors. Full contractor-side app is a separate build;
+// this is the minimal shape the customer flow needs to reference.
+model Contractor {
+  id           String   @id @default(cuid())
+  businessName String
+  email        String   @unique
+  phone        String?
+  avgRating    Float?
+  createdAt    DateTime @default(now())
+
+  estimates        Estimate[]
+  jobsWon          Job[]    @relation("JobChosenContractor")
+  reviews          Review[]
+}
+
+model Job {
+  id          String    @id @default(cuid())
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String
+
+  pickupAddressLine1 String
+  pickupAddressLine2 String?
+  city               String
+  state              String
+  zip                String
+  pickupDate         DateTime
+
+  status              JobStatus @default(DRAFT)
+  chosenContractorId  String?
+  chosenContractor    Contractor? @relation("JobChosenContractor", fields: [chosenContractorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  photos    JobPhoto[]
+  estimates Estimate[]
+  payment   Payment?
+  review    Review?
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model JobPhoto {
+  id        String   @id @default(cuid())
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  // Stored as a data: URL for now (no object storage wired up yet).
+  // Swap this for a Cloudflare R2 URL before real production traffic --
+  // see the README note on photo storage.
+  dataUrl   String   @db.Text
+  caption   String?
+  createdAt DateTime @default(now())
+
+  @@index([jobId])
+}
+
+model Estimate {
+  id           String         @id @default(cuid())
+  jobId        String
+  job          Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  contractorId String
+  contractor   Contractor     @relation(fields: [contractorId], references: [id])
+
+  amountCents  Int
+  message      String?
+  status       EstimateStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+
+  @@index([jobId])
+  @@index([contractorId])
+}
+
+model Payment {
+  id                    String        @id @default(cuid())
+  jobId                 String        @unique
+  job                   Job           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  stripePaymentIntentId String        @unique
+  amountCents           Int
+  status                PaymentStatus @default(PENDING)
+  receiptUrl            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Review {
+  id           String   @id @default(cuid())
+  jobId        String   @unique
+  job          Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  customerId   String
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contractorId String
+  contractor   Contractor @relation(fields: [contractorId], references: [id])
+
+  rating  Int // 1-5
+  comment String?
+
+  createdAt DateTime @default(now())
+
+  @@index([contractorId])
+}

@@ -1,8 +1,10 @@
-# Junk Run — Marketing Site
+# Junk Run
 
-This is the `junkrun-single-file-site.html` mockup rebuilt as a proper Next.js
-14 (App Router) project, mirroring the folder layout of the main Junk Run app
-(`app/`, `components/`, `lib/`, `public/`).
+Started as the `junkrun-single-file-site.html` mockup rebuilt as a proper
+Next.js 14 (App Router) project. It has since grown into the full app:
+the marketing site plus real customer sign-up/login, a dashboard for
+posting jobs, reviewing contractor estimates, tracking a job, paying, and
+leaving a review.
 
 ## Structure
 
@@ -35,14 +37,74 @@ This is the `junkrun-single-file-site.html` mockup rebuilt as a proper Next.js
   `Privacy`, etc. — all `onclick="return false"`, going nowhere yet) are now
   real `<button type="button">` elements instead of dead links.
 
-## Running it
+## Customer app (auth, dashboard, jobs, payments, reviews)
 
-```bash
-npm install
-npm run dev
-```
+Added on top of the marketing site:
 
-Then open http://localhost:3000.
+- **Auth** — Clerk (`@clerk/nextjs`), with real OAuth sign-in/sign-up at
+  `/sign-in` and `/sign-up` (whichever social providers are turned on in
+  the Clerk dashboard show up automatically — no code change needed to
+  add/remove one). `middleware.ts` protects everything under `/dashboard`.
+- **Database** — Prisma + Neon Postgres. Schema is in `prisma/schema.prisma`
+  (`Customer`, `Contractor`, `Job`, `JobPhoto`, `Estimate`, `Payment`,
+  `Review`). A `Customer` row is created/synced automatically the first
+  time a signed-in user hits any `/dashboard` page (`lib/getOrCreateCustomer.ts`).
+- **Payments** — Stripe. `/dashboard/profile` lets a customer save a card
+  (SetupIntent + Stripe Elements); a completed job can then be paid with
+  that saved card from the job page (PaymentIntent charged server-side).
+- **Dashboard** (`/dashboard`) — My Jobs list, Post a Job (with photo
+  upload), a job detail page with the estimate list, a status timeline,
+  payment + receipt, and the post-completion review form.
+
+### One-time setup
+
+1. Copy `.env.example` to `.env.local` and fill in real values:
+   - Clerk: dashboard.clerk.com → your app → **API Keys**.
+   - Database: your Neon project → **Connection Details** (use the pooled
+     connection string).
+   - Stripe: dashboard.stripe.com → **Developers → API keys** (use the
+     **test mode** keys while developing).
+2. Install dependencies and push the schema to your database:
+   ```bash
+   npm install
+   npm run db:push
+   ```
+   (`npm install` also runs `prisma generate` automatically via the
+   `postinstall` script.)
+3. Run it:
+   ```bash
+   npm run dev
+   ```
+   Then open http://localhost:3000, sign up as a new customer, and post a
+   job.
+
+### Testing the full journey without a contractor app yet
+
+There's no contractor-facing app yet, so nothing will submit real
+estimates or move a job to "in progress"/"completed" on its own. Every
+job detail page shows a **Dev Testing Tools** panel (only outside
+production — see `app/api/dev/simulate/route.ts`) with buttons to
+simulate a contractor estimate coming in, the job starting, and the job
+completing, so you can walk the whole flow — post a job → estimates come
+in → choose a contractor → job progresses → pay → leave a review — end to
+end today. Delete that route and panel once a real contractor app exists.
+
+### Known follow-ups (not blocking, worth doing before real production traffic)
+
+- **Photo storage**: job photos are currently stored as base64 `data:`
+  URLs directly in Postgres (`JobPhoto.dataUrl`, flagged in the schema).
+  Fine for testing; swap for object storage (e.g. Cloudflare R2 or S3)
+  before real usage so the database doesn't balloon.
+- **Payment sync**: `/api/jobs/[jobId]/pay` confirms the Stripe charge and
+  updates the `Payment` row synchronously. Adding a Stripe webhook
+  (`payment_intent.succeeded` / `.payment_failed`) would make that more
+  robust against the customer closing the tab mid-payment.
+- **Cloudflare Workers deployment**: if this app gets deployed the same
+  way as the marketing site (Cloudflare Workers via OpenNext) rather than
+  a normal Node host (e.g. Vercel), Prisma's default binary query engine
+  won't run in the Workers runtime — it'll need Prisma's driver adapter
+  for Neon (`@prisma/adapter-neon`, WASM-based) instead. Flagging this now
+  rather than guessing at the swap blind.
 
 ## Building
 
@@ -51,8 +113,6 @@ npm run build
 npm run start
 ```
 
-This has been verified to build and statically prerender all 7 routes
-successfully (`npm run build`) as a standalone Next.js app. To fold it into
-the existing Cloudflare Workers / OpenNext deployment pipeline used by the
-main Junk Run app, add `open-next.config.ts` and `wrangler.jsonc` the same
-way that repo does, and merge `package.json`'s scripts/dependencies.
+The marketing pages statically prerender; everything under `/dashboard`,
+`/sign-in`, `/sign-up`, and `/api/*` renders dynamically per-request (as
+expected, since they depend on the signed-in user).
